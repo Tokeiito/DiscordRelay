@@ -174,9 +174,10 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     public void sendToMGMTChat(final String channel, final String message){
         String window = "MGMT";
         final Message mess = new Message(null, Message.MGMT, window, message);
-        mess.setSenderKingdom((byte) 4);
+        //mess.setSenderKingdom((byte) 4);
+        byte kingdomId = 4;
         if (message.trim().length() > 1) {
-            Server.getInstance().addMessage(mess);
+            Players.getInstance().sendCaMessage(kingdomId, mess);
         }
     }
 
