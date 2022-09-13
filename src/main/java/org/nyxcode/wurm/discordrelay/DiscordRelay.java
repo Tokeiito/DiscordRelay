@@ -5,6 +5,7 @@ import com.wurmonline.server.creatures.Communicator;
 import com.wurmonline.server.creatures.Creature;
 import com.wurmonline.server.kingdom.Kingdom;
 import com.wurmonline.server.kingdom.Kingdoms;
+import com.wurmonline.server.players.Player;
 import com.wurmonline.server.villages.PvPAlliance;
 import com.wurmonline.server.villages.Village;
 import javassist.ClassPool;
@@ -22,11 +23,13 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.gotti.wurmunlimited.modloader.classhooks.HookManager;
 import org.gotti.wurmunlimited.modloader.interfaces.*;
+import org.jetbrains.annotations.NotNull;
 
 import javax.security.auth.login.LoginException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Properties;
 import java.util.logging.Logger;
 
@@ -34,8 +37,9 @@ import java.util.logging.Logger;
 /**
  * Created by whisper2shade on 22.04.2017.
  */
-public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreInitable, Configurable, ServerPollListener, ChannelMessageListener, PlayerMessageListener {
+public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreInitable, Configurable, ServerPollListener, ChannelMessageListener, PlayerMessageListener, Versioned {
     public static final Logger logger = Logger.getLogger(DiscordRelay.class.getName());
+    public static final String version = "ty3.1";
 
     protected static JDA jda;
     protected static String botToken = "";
@@ -49,9 +53,30 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     protected static boolean enableTrade = true;
     protected static boolean enableMGMT = true;
     protected static boolean enableCAHELP = true;
+    protected static boolean countAltsAsPlayers = true;
 
-    public static void sendRumour(Creature creature){
-        sendToDiscord(rumorChannel, "Rumours of " + creature.getName() + " are starting to spread.", true);
+    @Override
+    public void configure(Properties properties) {
+        Prop.properties = properties;
+
+        botToken = properties.getProperty("botToken", botToken);
+        if(botToken.equals("")){
+            logger.warning("Discord bot token not entered for DiscordRelay. The bot will not function without this.");
+        }
+        serverName = properties.getProperty("discordServerName", serverName);
+        if(serverName.equals("")){
+            logger.warning("Server name not entered for DiscordRelay. The bot will not function without this.");
+        }
+        useUnderscore = Boolean.parseBoolean(properties.getProperty("useUnderscore", Boolean.toString(useUnderscore)));
+        showConnectedPlayers = Boolean.parseBoolean(properties.getProperty("showConnectedPlayers", Boolean.toString(showConnectedPlayers)));
+        connectedPlayerUpdateInterval = Integer.parseInt(properties.getProperty("connectedPlayerUpdateInterval", Integer.toString(connectedPlayerUpdateInterval)));
+        pollPlayerInterval = TimeConstants.SECOND_MILLIS*connectedPlayerUpdateInterval;
+        enableRumors = Boolean.parseBoolean(properties.getProperty("enableRumors", Boolean.toString(enableRumors)));
+        rumorChannel = properties.getProperty("rumorChannel", rumorChannel);
+        enableTrade = Boolean.parseBoolean(properties.getProperty("enableTrade", Boolean.toString(enableTrade)));
+        enableMGMT = Prop.getBooleanProperty("enableMGMT", enableMGMT);
+        enableCAHELP = Prop.getBooleanProperty("enableCAHELP", enableCAHELP);
+        countAltsAsPlayers = Prop.getBooleanProperty("countAltsAsPlayers", countAltsAsPlayers);
     }
 
     @Override
@@ -96,28 +121,10 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         }
     }
 
-    @Override
-    public void configure(Properties properties) {
-        Prop.properties = properties;
-
-        botToken = properties.getProperty("botToken", botToken);
-        if(botToken.equals("")){
-            logger.warning("Discord bot token not entered for DiscordRelay. The bot will not function without this.");
-        }
-        serverName = properties.getProperty("discordServerName", serverName);
-        if(serverName.equals("")){
-            logger.warning("Server name not entered for DiscordRelay. The bot will not function without this.");
-        }
-        useUnderscore = Boolean.parseBoolean(properties.getProperty("useUnderscore", Boolean.toString(useUnderscore)));
-        showConnectedPlayers = Boolean.parseBoolean(properties.getProperty("showConnectedPlayers", Boolean.toString(showConnectedPlayers)));
-        connectedPlayerUpdateInterval = Integer.parseInt(properties.getProperty("connectedPlayerUpdateInterval", Integer.toString(connectedPlayerUpdateInterval)));
-        pollPlayerInterval = TimeConstants.SECOND_MILLIS*connectedPlayerUpdateInterval;
-        enableRumors = Boolean.parseBoolean(properties.getProperty("enableRumors", Boolean.toString(enableRumors)));
-        rumorChannel = properties.getProperty("rumorChannel", rumorChannel);
-        enableTrade = Boolean.parseBoolean(properties.getProperty("enableTrade", Boolean.toString(enableTrade)));
-        enableMGMT = Prop.getBooleanProperty("enableMGMT", enableMGMT);
-        enableCAHELP = Prop.getBooleanProperty("enableCAHELP", enableCAHELP);
+    public static void sendRumour(Creature creature){
+        sendToDiscord(rumorChannel, "Rumours of " + creature.getName() + " are starting to spread.", true);
     }
+
 
     private static final DateFormat df = new SimpleDateFormat("HH:mm:ss");
     public static void sendToDiscord(String channel, String message, boolean includeMap){
@@ -165,19 +172,19 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     public void sendToHelpChat(final String channel, final String message){
         String window = "CA HELP";
         final Message mess = new Message(null, Message.CA, window, message);
-        mess.setSenderKingdom((byte) 4);
+        //mess.setSenderKingdom((byte) 4);
+        byte kingdomId = 4;
         if (message.trim().length() > 1) {
-            Server.getInstance().addMessage(mess);
+            Players.getInstance().sendCaMessage(kingdomId, mess);
         }
     }
 
     public void sendToMGMTChat(final String channel, final String message){
         String window = "MGMT";
         final Message mess = new Message(null, Message.MGMT, window, message);
-        //mess.setSenderKingdom((byte) 4);
-        byte kingdomId = 4;
+        mess.setSenderKingdom((byte) 4);
         if (message.trim().length() > 1) {
-            Players.getInstance().sendCaMessage(kingdomId, mess);
+            Server.getInstance().addMessage(mess);
         }
     }
 
@@ -235,8 +242,9 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     }
 
     @Override
-    public void onMessageReceived(MessageReceivedEvent event) {
+    public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         super.onMessageReceived(event);
+        
         if (event.isFromType(ChannelType.TEXT) && !event.getAuthor().isBot()) {
             String name = event.getTextChannel().getName();
             if(name.contains("trade")){
@@ -301,14 +309,31 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
             if(System.currentTimeMillis() > lastPolledPlayers + pollPlayerInterval) {
                 if (Servers.localServer.LOGINSERVER) {
                     try {
-                        jda.getPresence().setActivity(Activity.of(Activity.ActivityType.CUSTOM_STATUS, Players.getInstance().getNumberOfPlayers() + " online!"));
+                        int numPlayers;
+                        if(countAltsAsPlayers){
+                            numPlayers = Players.getInstance().getNumberOfPlayers();
+                        }else {
+                            Player[] players = Players.getInstance().getPlayers();
+
+                            HashSet<Long> ids = new HashSet<>();
+                            for(Player player : players){
+                                ids.add(player.getSaveFile().getSteamId().getSteamID64());
+                            }
+
+                            numPlayers = ids.size();
+                        }
+                        jda.getPresence().setActivity(Activity.of(Activity.ActivityType.DEFAULT,  numPlayers+" online!"));
                     }catch(Exception e){
-                        //e.printStackTrace();
-                        //logger.info("Failed to update player count.");
+                        logger.warning("Failed to update player count."+e);
                     }
                 }
                 lastPolledPlayers = System.currentTimeMillis();
             }
         }
+    }
+
+    @Override
+    public String getVersion(){
+        return version;
     }
 }
