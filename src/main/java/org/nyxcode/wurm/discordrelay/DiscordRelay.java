@@ -29,9 +29,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Properties;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -56,6 +54,24 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     protected static boolean enableMGMT = true;
     protected static boolean enableCAHELP = true;
     protected static boolean countAltsAsPlayers = true;
+
+    private static final HashMap<String, String> emojis = new HashMap<>();
+
+    static {
+        emojis.put("\uD83D\uDE1B", ":P");
+        emojis.put("\uD83D\uDE03", ":)");
+        emojis.put("\uD83D\uDE04", ":D");
+        emojis.put("\uD83D\uDE26", ":(");
+        emojis.put("\uD83D\uDE22", ":`(");
+        emojis.put("\uD83D\uDE17", ":*");
+        emojis.put("\uD83D\uDC94", "</3");
+        emojis.put("\u2764", "<3");
+        emojis.put("\uD83D\uDE01", ":]");
+        emojis.put("\uD83D\uDE09", ";)");
+        emojis.put("\uD83D\uDE20", ">:(");
+        emojis.put("\uD83D\uDE21", ">:(");
+        emojis.put("\uD83D\uDE2D", ";-;");
+    }
 
     @Override
     public void configure(Properties properties) {
@@ -241,14 +257,20 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
             String channelName = event.getChannel().getName();
             if(event.getMember() != null) {
                 String authorName = event.getMember().getEffectiveName();
+
+                String message = event.getMessage().getContentDisplay().trim();
+                for (Map.Entry<String, String> p : emojis.entrySet()) {
+                    message = message.replace(p.getKey(), p.getValue());
+                }
+
                 if (enableTrade && channelName.contains("trade")) {
-                    sendToTradeChat(channelName, "<@" + authorName + "> " + event.getMessage().getContentRaw());
+                    sendToTradeChat(channelName, "<@" + authorName + "> " + message);
                 } else if (enableCAHELP && channelName.contains(discordifyName("ca-help"))) {
-                    sendToHelpChat(channelName, "<@" + authorName + "> " + event.getMessage().getContentRaw());
+                    sendToHelpChat(channelName, "<@" + authorName + "> " + message);
                 } else if (enableMGMT && channelName.contains("mgmt")) {
-                    sendToMGMTChat(channelName, "<@" + authorName + "> " + event.getMessage().getContentRaw());
+                    sendToMGMTChat(channelName, "<@" + authorName + "> " + message);
                 } else {
-                    sendToGlobalKingdomChat(channelName, "<@" + authorName + "> " + event.getMessage().getContentRaw());
+                    sendToGlobalKingdomChat(channelName, "<@" + authorName + "> " + message);
                 }
             }
         }
