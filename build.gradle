@@ -7,7 +7,7 @@ apply plugin: 'com.github.johnrengelman.shadow'
 
 group = 'org.nyxcode.wurm'
 
-version = 'ty3.1'
+version = 'ty3.2'
 
 description = "A mod that acts as a discord relay between Wurm kingdom chat and a discord server"
 
@@ -24,7 +24,7 @@ repositories {
 }
 
 dependencies {
-    compile 'net.dv8tion:JDA:4.2.0_247'
+    compile 'net.dv8tion:JDA:5.0.0-alpha.19'
     compile 'org.gotti.wurmunlimited:server-modlauncher:0.45'
     compile 'com.github.Sindusk:sindusklibrary:v2.5'
 }
