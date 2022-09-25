@@ -1,14 +1,10 @@
-buildscript {
-    repositories {
-        jcenter()
-    }
-    dependencies {
-        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
-    }
+plugins {
+  id "com.github.johnrengelman.shadow" version "7.1.2"
+  id "eclipse"
 }
 
 apply plugin: 'java'
-apply plugin: 'maven'
+apply plugin: 'maven-publish'
 apply plugin: 'com.github.johnrengelman.shadow'
 
 group = 'org.nyxcode.wurm'
@@ -22,20 +18,20 @@ targetCompatibility = 1.8
 
 repositories {
     mavenCentral()
-    maven { url "http://jcenter.bintray.com" }
+    maven { url "https://jcenter.bintray.com" }
     maven { url "https://dl.bdew.net/agorepo/" }
-    maven { url "http://repo.maven.apache.org/maven2" }
+    maven { url "https://repo.maven.apache.org/maven2" }
     maven { url 'https://jitpack.io' }
 }
 
 dependencies {
-    compile 'net.dv8tion:JDA:3.3.1_289'
-    compile 'org.gotti.wurmunlimited:server-modlauncher:0.40'
-    compile 'com.github.Sindusk:sindusklibrary:v2.1'
+    implementation("net.dv8tion:JDA:5.0.0-alpha.20")
+    implementation('org.gotti.wurmunlimited:server-modlauncher:0.40')
+    implementation('com.github.Sindusk:sindusklibrary:v2.1')
 }
 
 jar {
-    version = null
+    archiveVersion = null
 }
 
 shadowJar {
@@ -57,5 +53,5 @@ task dist(type: Zip) {
         from fileTree(dir: 'mods', include: '*')
     })
 
-    archiveName "${project.name}-${project.version}.zip"
+    archiveFileName = provider { "${project.name}-${project.version}.zip"}
 }

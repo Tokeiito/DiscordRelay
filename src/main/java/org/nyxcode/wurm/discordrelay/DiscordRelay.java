@@ -13,19 +13,18 @@ import javassist.NotFoundException;
 import javassist.bytecode.Descriptor;
 import mod.sin.lib.Prop;
 import mod.sin.lib.Util;
-import net.dv8tion.jda.core.AccountType;
-import net.dv8tion.jda.core.JDA;
-import net.dv8tion.jda.core.JDABuilder;
-import net.dv8tion.jda.core.MessageBuilder;
-import net.dv8tion.jda.core.entities.ChannelType;
-import net.dv8tion.jda.core.entities.Game;
-import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.core.exceptions.RateLimitedException;
-import net.dv8tion.jda.core.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Activity.ActivityType;
+import net.dv8tion.jda.api.entities.channel.ChannelType;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
+
 import org.gotti.wurmunlimited.modloader.classhooks.HookManager;
 import org.gotti.wurmunlimited.modloader.interfaces.*;
 
-import javax.security.auth.login.LoginException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -42,7 +41,6 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     protected static JDA jda;
     protected static String botToken = "";
     protected static String serverName = "";
-    //private String wurmBotName;
     protected static boolean useUnderscore = false;
     protected static boolean showConnectedPlayers = true;
     protected static int connectedPlayerUpdateInterval = 120;
@@ -61,11 +59,16 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         ClassPool classPool = HookManager.getInstance().getClassPool();
         Class<DiscordRelay> thisClass = DiscordRelay.class;
 
+        //jda = new JDABuilder(AccountType.BOT).setToken(botToken).addEventListener(this).buildBlocking();
+        jda = JDABuilder.createDefault(botToken).addEventListeners(this).build();
         try {
-            jda = new JDABuilder(AccountType.BOT).setToken(botToken).addEventListener(this).buildBlocking();
-        } catch (LoginException | RateLimitedException | InterruptedException e) {
-            e.printStackTrace();
-        }
+			jda.awaitReady();
+		} catch (InterruptedException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+			logger.info("Unable to wait untill JDA is ready.");
+		}
+
 
         // - Send rumour messages to discord - //
         try {
@@ -122,15 +125,16 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
 
     private static final DateFormat df = new SimpleDateFormat("HH:mm:ss");
     public static void sendToDiscord(String channel, String message, boolean includeMap){
-        MessageBuilder builder = new MessageBuilder();
+        MessageCreateBuilder builder = new MessageCreateBuilder();
+        
         message = "[" + df.format(new Date(System.currentTimeMillis())) + "] "+message; // Add timestamp
         if(includeMap) {
             message = message + " (" + Servers.localServer.mapname + ")";
         }
 
-        builder.append(message);
+        builder.addContent(message);
         try {
-            jda.getGuildsByName(serverName, true).get(0).getTextChannelsByName(channel, true).get(0).sendMessage(builder.build()).queue();
+            jda.getTextChannelsByName(channel, true).get(0).sendMessage(builder.build()).queue();
         }catch(Exception e){
             e.printStackTrace();
             logger.info("Discord Relay failure: #"+channel+" - "+message);
@@ -146,16 +150,13 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
             }
         }else if(window.startsWith("GL-")){
             byte kingdomId = message.getSender().getKingdomId();
-            //Kingdom kingdom = Kingdoms.getKingdom(kingdomId);
+
             String kingdomName = discordifyName("GL-"+Kingdoms.getChatNameFor(kingdomId));
             sendToDiscord(kingdomName, message.getMessage(), false);
-	        /*MessageBuilder builder = new MessageBuilder();
 
-	        builder.append(message.getMessage());
-	        jda.getGuildsByName(serverName, true).get(0).getTextChannelsByName(kingdomName, true).get(0).sendMessage(builder.build()).queue();*/
         }else{
             byte kingdomId = message.getSender().getKingdomId();
-            //Kingdom kingdom = Kingdoms.getKingdom(kingdomId);
+
             String kingdomName = discordifyName(Kingdoms.getChatNameFor(kingdomId));
             sendToDiscord(kingdomName, message.getMessage(), false);
         }
@@ -208,7 +209,6 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
             }
         }
         if (kingdomId != -1) {
-            //long wurmId = -10;
 
             String window = "";
             if(global){
@@ -238,21 +238,22 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     public void onMessageReceived(MessageReceivedEvent event) {
         super.onMessageReceived(event);
         if (event.isFromType(ChannelType.TEXT) && !event.getAuthor().isBot()) {
-            String name = event.getTextChannel().getName();
+        	
+            String name = event.getChannel().getName();
             if(name.contains("trade")){
                 if(enableTrade) {
-                    sendToTradeChat(name, "<@" + event.getMember().getEffectiveName() + "> " + event.getMessage().getContent());
+                    sendToTradeChat(name, "<@" + event.getMember().getEffectiveName() + "> " + event.getMessage().getContentDisplay());
                 }
             } else if (name.contains(discordifyName("ca-help"))){
                 if (enableCAHELP) {
-                    sendToHelpChat(name, "<@" + event.getMember().getEffectiveName() + "> " + event.getMessage().getContent());
+                    sendToHelpChat(name, "<@" + event.getMember().getEffectiveName() + "> " + event.getMessage().getContentDisplay());
                 }
             } else if (name.contains("mgmt")){
                 if (enableMGMT) {
-                    sendToMGMTChat(name, "<@" + event.getMember().getEffectiveName() + "> " + event.getMessage().getContent());
+                    sendToMGMTChat(name, "<@" + event.getMember().getEffectiveName() + "> " + event.getMessage().getContentDisplay());
                 }
             } else {
-                sendToGlobalKingdomChat(name, "<@" + event.getMember().getEffectiveName() + "> " + event.getMessage().getContent());
+                sendToGlobalKingdomChat(name, "<@" + event.getMember().getEffectiveName() + "> " + event.getMessage().getContentDisplay());
             }
         }
     }
@@ -295,13 +296,14 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
 
     protected static long lastPolledPlayers = 0;
     protected static long pollPlayerInterval = TimeConstants.SECOND_MILLIS*120;
+    
     @Override
     public void onServerPoll() {
         if(showConnectedPlayers) {
             if(System.currentTimeMillis() > lastPolledPlayers + pollPlayerInterval) {
                 if (Servers.localServer.LOGINSERVER) {
                     try {
-                        jda.getPresence().setGame(Game.of(Players.getInstance().getNumberOfPlayers() + " online!"));
+                        jda.getPresence().setActivity(Activity.of(ActivityType.PLAYING, Players.getInstance().getNumberOfPlayers() + " online!"));
                     }catch(Exception e){
                         //e.printStackTrace();
                         //logger.info("Failed to update player count.");
