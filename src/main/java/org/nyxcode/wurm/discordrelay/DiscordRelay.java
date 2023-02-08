@@ -14,6 +14,7 @@ import javassist.NotFoundException;
 import javassist.bytecode.Descriptor;
 import mod.sin.lib.Prop;
 import mod.sin.lib.Util;
+import net.dv8tion.jda.api.entities.Message.Attachment;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
@@ -53,7 +54,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     protected static boolean enableMGMT = true;
     protected static boolean enableCAHELP = true;
     protected static boolean countAltsAsPlayers = true;
-
+    protected static boolean showAttachments = true;
     private static final HashMap<String, String> emojis = new HashMap<>();
 
     static {
@@ -94,6 +95,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         enableMGMT = Prop.getBooleanProperty("enableMGMT", enableMGMT);
         enableCAHELP = Prop.getBooleanProperty("enableCAHELP", enableCAHELP);
         countAltsAsPlayers = Prop.getBooleanProperty("countAltsAsPlayers", countAltsAsPlayers);
+        showAttachments = Prop.getBooleanProperty("showAttachments", showAttachments);
     }
 
     @Override
@@ -177,7 +179,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         return MessagePolicy.PASS;
     }
 
-    public void sendToHelpChat(final String channel, final String message){
+    public void sendToHelpChat(final String channel, final String message, final String attachmentMessage){
         String window = "CA HELP";
         final Message mess = new Message(null, Message.CA, window, message);
         //mess.setSenderKingdom((byte) 4);
@@ -185,27 +187,41 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         if (message.trim().length() > 0) {
             Players.getInstance().sendCaMessage(kingdomId, mess);
         }
+        if(attachmentMessage != null && attachmentMessage.trim().length() > 0){
+            final Message imageMess = new Message(null, Message.CA, window, attachmentMessage);
+            Players.getInstance().sendCaMessage(kingdomId, imageMess);
+        }
     }
 
-    public void sendToMGMTChat(final String channel, final String message){
+    public void sendToMGMTChat(final String channel, final String message, final String attachmentMessage){
         String window = "MGMT";
         final Message mess = new Message(null, Message.MGMT, window, message);
         mess.setSenderKingdom((byte) 4);
         if (message.trim().length() > 0) {
             Server.getInstance().addMessage(mess);
         }
+        if(attachmentMessage != null && attachmentMessage.trim().length() > 0){
+            final Message imageMess = new Message(null, Message.MGMT, window, attachmentMessage);
+            imageMess.setSenderKingdom((byte) 4);
+            Server.getInstance().addMessage(imageMess);
+        }
     }
 
-    public void sendToTradeChat(final String channel, final String message){
+    public void sendToTradeChat(final String channel, final String message, final String attachmentMessage){
         String window = "Trade";
         final Message mess = new Message(null, Message.TRADE, window, message);
         mess.setSenderKingdom((byte) 4);
         if (message.trim().length() > 0) {
             Server.getInstance().addMessage(mess);
         }
+        if(attachmentMessage != null && attachmentMessage.trim().length() > 0){
+            final Message imageMess = new Message(null, Message.TRADE, window, attachmentMessage);
+            imageMess.setSenderKingdom((byte) 4);
+            Server.getInstance().addMessage(imageMess);
+        }
     }
 
-    public void sendToGlobalKingdomChat(final String channel, final String message) {
+    public void sendToGlobalKingdomChat(final String channel, final String message, final String attachmentMessage) {
         Kingdom[] kingdoms = Kingdoms.getAllKingdoms();
 
         byte kingdomId = -1;
@@ -235,6 +251,11 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
             if (message.trim().length() > 0) {
                 Server.getInstance().addMessage(mess);
             }
+            if(attachmentMessage != null && attachmentMessage.trim().length() > 0){
+                final Message imageMess = new Message(null, Message.GLOBKINGDOM, window, attachmentMessage);
+                imageMess.setSenderKingdom(kingdomId);
+                Server.getInstance().addMessage(imageMess);
+            }
         }
     }
 
@@ -258,15 +279,35 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
                 String authorName = event.getMember().getEffectiveName();
 
                 String message = emoticonify(event.getMessage().getContentDisplay().trim());
+                String attachmentMessage = "";
+                if(showAttachments) {
+                    StringBuilder attachmentBuilder = new StringBuilder();
+                    for (Attachment attachment : event.getMessage().getAttachments()) {
+                        if (attachmentBuilder.length() > 0) {
+                            attachmentBuilder.append(", ");
+                        }else {
+                            attachmentBuilder.append("~");
+                        }
+                        attachmentBuilder
+                                .append("[")
+                                .append(attachment.getFileName())
+                                .append("]");
+                    }
+                    if(message.trim().length() == 0){
+                        message = attachmentBuilder.toString();
+                    } else {
+                        attachmentMessage = attachmentBuilder.toString();
+                    }
+                }
 
                 if (enableTrade && channelName.contains("trade")) {
-                    sendToTradeChat(channelName, "<@" + authorName + "> " + message);
+                    sendToTradeChat(channelName, "<@" + authorName + "> " + message, attachmentMessage);
                 } else if (enableCAHELP && channelName.contains(discordifyName("ca-help"))) {
-                    sendToHelpChat(channelName, "<@" + authorName + "> " + message);
+                    sendToHelpChat(channelName, "<@" + authorName + "> " + message, attachmentMessage);
                 } else if (enableMGMT && channelName.contains("mgmt")) {
-                    sendToMGMTChat(channelName, "<@" + authorName + "> " + message);
+                    sendToMGMTChat(channelName, "<@" + authorName + "> " + message, attachmentMessage);
                 } else {
-                    sendToGlobalKingdomChat(channelName, "<@" + authorName + "> " + message);
+                    sendToGlobalKingdomChat(channelName, "<@" + authorName + "> " + message, attachmentMessage);
                 }
             }
         }
