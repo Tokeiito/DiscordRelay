@@ -24,7 +24,7 @@ repositories {
 }
 
 dependencies {
-    compile 'net.dv8tion:JDA:5.0.0-alpha.19'
+    compile 'net.dv8tion:JDA:5.0.0-beta.2'
     compile 'org.gotti.wurmunlimited:server-modlauncher:0.45'
     compile 'com.github.Sindusk:sindusklibrary:v2.5'
 }
