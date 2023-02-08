@@ -44,7 +44,6 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     protected static JDA jda;
     protected static String botToken = "";
     protected static String serverName = "";
-    //private String wurmBotName;
     protected static boolean useUnderscore = false;
     protected static boolean showConnectedPlayers = true;
     protected static int connectedPlayerUpdateInterval = 120;
@@ -102,7 +101,6 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         ClassPool classPool = HookManager.getInstance().getClassPool();
         Class<DiscordRelay> thisClass = DiscordRelay.class;
 
-        // jda = JDABuilder.createDefault(botToken).addEventListeners(this).build().awaitReady();
         jda = JDABuilder.create(botToken, GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT)
                 .disableCache(CacheFlag.ACTIVITY, CacheFlag.VOICE_STATE, CacheFlag.EMOJI, CacheFlag.CLIENT_STATUS, CacheFlag.STICKER, CacheFlag.ONLINE_STATUS)
                 .addEventListeners(this)
@@ -138,6 +136,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         }
     }
 
+    @SuppressWarnings("unused")
     public static void sendRumour(Creature creature){
         sendToDiscord(rumorChannel, "Rumours of " + creature.getName() + " are starting to spread.", true);
     }
@@ -148,7 +147,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         MessageCreateBuilder builder = new MessageCreateBuilder();
         message = "[" + df.format(new Date(System.currentTimeMillis())) + "] "+message; // Add timestamp
         if(includeMap) {
-            message = message + " (" + Servers.localServer.mapname + ")";
+            message += " (" + Servers.localServer.mapname + ")";
         }
 
         builder.addContent(message);
@@ -183,7 +182,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         final Message mess = new Message(null, Message.CA, window, message);
         //mess.setSenderKingdom((byte) 4);
         byte kingdomId = 4;
-        if (message.trim().length() > 1) {
+        if (message.trim().length() > 0) {
             Players.getInstance().sendCaMessage(kingdomId, mess);
         }
     }
@@ -192,7 +191,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         String window = "MGMT";
         final Message mess = new Message(null, Message.MGMT, window, message);
         mess.setSenderKingdom((byte) 4);
-        if (message.trim().length() > 1) {
+        if (message.trim().length() > 0) {
             Server.getInstance().addMessage(mess);
         }
     }
@@ -201,7 +200,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         String window = "Trade";
         final Message mess = new Message(null, Message.TRADE, window, message);
         mess.setSenderKingdom((byte) 4);
-        if (message.trim().length() > 1) {
+        if (message.trim().length() > 0) {
             Server.getInstance().addMessage(mess);
         }
     }
@@ -233,7 +232,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
 
             final Message mess = new Message(null, Message.GLOBKINGDOM, window, message);
             mess.setSenderKingdom(kingdomId);
-            if (message.trim().length() > 1) {
+            if (message.trim().length() > 0) {
                 Server.getInstance().addMessage(mess);
             }
         }
@@ -258,10 +257,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
             if(event.getMember() != null) {
                 String authorName = event.getMember().getEffectiveName();
 
-                String message = event.getMessage().getContentDisplay().trim();
-                for (Map.Entry<String, String> p : emojis.entrySet()) {
-                    message = message.replace(p.getKey(), p.getValue());
-                }
+                String message = emoticonify(event.getMessage().getContentDisplay().trim());
 
                 if (enableTrade && channelName.contains("trade")) {
                     sendToTradeChat(channelName, "<@" + authorName + "> " + message);
@@ -276,7 +272,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         }
     }
 
-    private String discordifyName(String name) {
+    public static String discordifyName(String name) {
         name = name.toLowerCase();
         if (useUnderscore) {
             return name.replace(" ", "_");
@@ -285,12 +281,12 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         }
     }
 
-    protected static String getPlayerPrefix(Communicator comm){
+    public static String getPlayerPrefix(Communicator comm){
         if (comm.getPlayer() != null) {
             return "<" + comm.getPlayer().getName() + "> ";
         }
         logger.warning("Could not find player for a communicator.");
-        return "<???>";
+        return "<???> ";
     }
 
     @Override
@@ -315,31 +311,40 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     protected static long pollPlayerInterval = TimeConstants.SECOND_MILLIS*120;
     @Override
     public void onServerPoll() {
-        if(showConnectedPlayers) {
-            if(System.currentTimeMillis() > lastPolledPlayers + pollPlayerInterval) {
-                if (Servers.localServer.LOGINSERVER) {
-                    try {
-                        int numPlayers;
-                        if(countAltsAsPlayers){
-                            numPlayers = Players.getInstance().getNumberOfPlayers();
-                        }else{
-                            Player[] players = Players.getInstance().getPlayers();
+        if(showConnectedPlayers && Servers.localServer.LOGINSERVER && System.currentTimeMillis() > lastPolledPlayers + pollPlayerInterval) {
+            try {
+                int numPlayers;
+                if(countAltsAsPlayers){
+                    numPlayers = Players.getInstance().getNumberOfPlayers();
+                }else{
+                    Player[] players = Players.getInstance().getPlayers();
 
-                            HashSet<Long> ids = new HashSet<>();
-                            for(Player player : players){
-                                ids.add(player.getSaveFile().getSteamId().getSteamID64());
-                            }
-
-                            numPlayers = ids.size();
-                        }
-                        jda.getPresence().setActivity(Activity.of(Activity.ActivityType.PLAYING,  numPlayers+" online!"));
-                    }catch(Exception e){
-                        logger.warning("Failed to update player count."+e);
+                    HashSet<Long> ids = new HashSet<>();
+                    for(Player player : players){
+                        ids.add(player.getSaveFile().getSteamId().getSteamID64());
                     }
+
+                    numPlayers = ids.size();
                 }
-                lastPolledPlayers = System.currentTimeMillis();
+                jda.getPresence().setActivity(Activity.of(Activity.ActivityType.PLAYING,  numPlayers+" online!"));
+            }catch(Exception e){
+                logger.log(Level.WARNING, "Failed to update player count.", e);
             }
+            lastPolledPlayers = System.currentTimeMillis();
         }
+    }
+
+    public static String emoticonify(String message){
+        String newMessage = message;
+        for (Map.Entry<String, String> p : emojis.entrySet()) {
+            newMessage = newMessage.replace(p.getKey(), p.getValue());
+        }
+        return newMessage;
+    }
+
+    @SuppressWarnings("unused")
+    public static JDA getJda(){
+        return jda;
     }
 
     @Override
