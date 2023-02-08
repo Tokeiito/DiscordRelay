@@ -14,6 +14,7 @@ import javassist.NotFoundException;
 import javassist.bytecode.Descriptor;
 import mod.sin.lib.Prop;
 import mod.sin.lib.Util;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message.Attachment;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -55,6 +56,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     protected static boolean enableCAHELP = true;
     protected static boolean countAltsAsPlayers = true;
     protected static boolean showAttachments = true;
+    protected static boolean showReplies = true;
     private static final HashMap<String, String> emojis = new HashMap<>();
 
     static {
@@ -96,6 +98,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         enableCAHELP = Prop.getBooleanProperty("enableCAHELP", enableCAHELP);
         countAltsAsPlayers = Prop.getBooleanProperty("countAltsAsPlayers", countAltsAsPlayers);
         showAttachments = Prop.getBooleanProperty("showAttachments", showAttachments);
+        showReplies = Prop.getBooleanProperty("showReplies", showReplies);
     }
 
     @Override
@@ -300,14 +303,33 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
                     }
                 }
 
+                StringBuilder authorBuilder = new StringBuilder("<@").append(authorName);
+                if(showReplies && event.getMessage().getReferencedMessage() != null){
+                    net.dv8tion.jda.api.entities.Message replied = event.getMessage().getReferencedMessage();
+                    Member member = replied.getMember();
+                    if(member != null) {
+                        authorBuilder.append(" to ");
+                        if(member.getId().equals(jda.getSelfUser().getId())){
+                            String repliedMessage = replied.getContentDisplay().trim();
+                            if(repliedMessage.startsWith("[")){
+                                authorBuilder.append(repliedMessage, repliedMessage.indexOf('<')+1, repliedMessage.indexOf('>'));
+                            }
+                        } else {
+                            authorBuilder.append('@').append(member.getEffectiveName());
+                        }
+                    }
+                }
+                authorBuilder.append("> ");
+                String author = authorBuilder.toString();
+
                 if (enableTrade && channelName.contains("trade")) {
-                    sendToTradeChat(channelName, "<@" + authorName + "> " + message, attachmentMessage);
+                    sendToTradeChat(channelName, author + message, attachmentMessage);
                 } else if (enableCAHELP && channelName.contains(discordifyName("ca-help"))) {
-                    sendToHelpChat(channelName, "<@" + authorName + "> " + message, attachmentMessage);
+                    sendToHelpChat(channelName,  author + message, attachmentMessage);
                 } else if (enableMGMT && channelName.contains("mgmt")) {
-                    sendToMGMTChat(channelName, "<@" + authorName + "> " + message, attachmentMessage);
+                    sendToMGMTChat(channelName,  author + message, attachmentMessage);
                 } else {
-                    sendToGlobalKingdomChat(channelName, "<@" + authorName + "> " + message, attachmentMessage);
+                    sendToGlobalKingdomChat(channelName, author + message, attachmentMessage);
                 }
             }
         }
