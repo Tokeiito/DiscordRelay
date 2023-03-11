@@ -8,7 +8,11 @@ Mod for Wurm Unlimited servers that allow the connection between in game kingdom
 This is a fork of jamesblack's repo, which was an improvement on Sindusk's DiscordRelay, which was an updated and
 wyvernmods-compatible version of whisper2shade's original DiscordRelay mod.
 
-## The changes
+## Important
+For this version of the discord bot you need to enable "Message Content Intent" on the discord developer portal.
+![](intent.png)
+
+# The changes
  - Updated to the latest alpha release of JDA, 5.0.0-alpha.19
  - Fixed not sending messages from discord to wurm in ca-help
  - Added option to not count alts as separate players in the bot's presence text.
