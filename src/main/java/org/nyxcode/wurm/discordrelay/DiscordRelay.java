@@ -41,7 +41,7 @@ import java.util.logging.Logger;
  */
 public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreInitable, Configurable, ServerPollListener, ChannelMessageListener, PlayerMessageListener, Versioned {
     public static final Logger logger = Logger.getLogger(DiscordRelay.class.getName());
-    public static final String version = "ty3.3";
+    public static final String version = "ty3.4";
 
     protected static boolean jdaLoggedIn = false;
     protected static JDA jda = null;
