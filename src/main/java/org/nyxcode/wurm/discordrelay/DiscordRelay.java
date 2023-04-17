@@ -43,7 +43,8 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     public static final Logger logger = Logger.getLogger(DiscordRelay.class.getName());
     public static final String version = "ty3.3";
 
-    protected static JDA jda;
+    protected static boolean jdaLoggedIn = false;
+    protected static JDA jda = null;
     protected static String botToken = "";
     protected static String serverName = "";
     protected static boolean useUnderscore = false;
@@ -106,10 +107,14 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         ClassPool classPool = HookManager.getInstance().getClassPool();
         Class<DiscordRelay> thisClass = DiscordRelay.class;
 
-        jda = JDABuilder.create(botToken, GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT)
-                .disableCache(CacheFlag.ACTIVITY, CacheFlag.VOICE_STATE, CacheFlag.EMOJI, CacheFlag.CLIENT_STATUS, CacheFlag.STICKER, CacheFlag.ONLINE_STATUS)
-                .addEventListeners(this)
-                .build();
+        try {
+            jda = JDABuilder.create(botToken, GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT)
+                    .disableCache(CacheFlag.ACTIVITY, CacheFlag.VOICE_STATE, CacheFlag.EMOJI, CacheFlag.CLIENT_STATUS, CacheFlag.STICKER, CacheFlag.ONLINE_STATUS)
+                    .addEventListeners(this)
+                    .build();
+        } catch (Exception e){ logger.log(Level.WARNING, "Creating discord bot failed.", e); return; }
+        jdaLoggedIn = true;
+
 
         // - Send rumour messages to discord - //
         try {
@@ -157,7 +162,9 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
 
         builder.addContent(message);
         try {
-            jda.getGuildsByName(serverName, true).get(0).getTextChannelsByName(channel, true).get(0).sendMessage(builder.build()).queue();
+            if(jdaLoggedIn) {
+                jda.getGuildsByName(serverName, true).get(0).getTextChannelsByName(channel, true).get(0).sendMessage(builder.build()).queue();
+            }
         }catch(Exception e){
             logger.log(Level.WARNING, "Discord Relay failure: #"+channel+" - "+message, e);
         }
@@ -309,7 +316,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
                     Member member = replied.getMember();
                     if(member != null) {
                         authorBuilder.append(" to ");
-                        if(member.getId().equals(jda.getSelfUser().getId())){
+                        if(jdaLoggedIn && member.getId().equals(jda.getSelfUser().getId())){
                             String repliedMessage = replied.getContentDisplay().trim();
                             if(repliedMessage.startsWith("[")){
                                 authorBuilder.append(repliedMessage, repliedMessage.indexOf('<')+1, repliedMessage.indexOf('>'));
@@ -389,7 +396,9 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
 
                     numPlayers = ids.size();
                 }
-                jda.getPresence().setActivity(Activity.of(Activity.ActivityType.PLAYING,  numPlayers+" online!"));
+                if(jdaLoggedIn) {
+                    jda.getPresence().setActivity(Activity.of(Activity.ActivityType.PLAYING, numPlayers + " online!"));
+                }
             }catch(Exception e){
                 logger.log(Level.WARNING, "Failed to update player count.", e);
             }
