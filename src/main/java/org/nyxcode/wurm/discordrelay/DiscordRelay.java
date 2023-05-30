@@ -18,9 +18,14 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message.Attachment;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.events.StatusChangeEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.cache.CacheFlag;
@@ -34,6 +39,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 
 /**
@@ -59,6 +65,7 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
     protected static boolean showAttachments = true;
     protected static boolean showReplies = true;
     private static final HashMap<String, String> emojis = new HashMap<>();
+    private static final ArrayList<String> activeChannels = new ArrayList<>();
 
     static {
         emojis.put("\uD83D\uDE1B", ":P");
@@ -100,6 +107,22 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
         countAltsAsPlayers = Prop.getBooleanProperty("countAltsAsPlayers", countAltsAsPlayers);
         showAttachments = Prop.getBooleanProperty("showAttachments", showAttachments);
         showReplies = Prop.getBooleanProperty("showReplies", showReplies);
+
+        if (enableRumors) {
+            activeChannels.add(rumorChannel);
+        } 
+
+        if (enableTrade) {
+            activeChannels.add("trade");
+        }
+
+        if (enableMGMT) {
+            activeChannels.add("mgmt");
+        }
+
+        if (enableCAHELP) {
+            activeChannels.add("ca-help");
+        }
     }
 
     @Override
@@ -403,6 +426,30 @@ public class DiscordRelay extends ListenerAdapter implements WurmServerMod, PreI
                 logger.log(Level.WARNING, "Failed to update player count.", e);
             }
             lastPolledPlayers = System.currentTimeMillis();
+        }
+    }
+
+     @Override
+    public void onStatusChange(StatusChangeEvent event) {
+        logger.info(String.format("Discord status is now %s", event.getNewStatus()));
+        try {
+            if (event.getNewStatus() == JDA.Status.CONNECTED) {
+                Guild guild = jda.getGuildsByName(serverName, true).get(0);
+                logger.info(String.format("Guild: %s -> %s", serverName, guild.getId()));
+                Role role = guild.getBotRole();
+                if (role != null)
+                    logger.info(String.format("Guild permissions: %s", role.getPermissions().stream().map(Permission::getName).collect(Collectors.joining(", "))));
+                else
+                    logger.warning("Unable to retrieve my role!");
+                for (String channel : activeChannels) {
+                    TextChannel discordChannel = guild.getTextChannelsByName(channel, true).get(0);
+                    logger.info(String.format("Channel: %s -> %s (Permissions: %s)",
+                        channel, discordChannel.getId(),
+                        role == null ? "???" : role.getPermissions(discordChannel).stream().map(Permission::getName).collect(Collectors.joining(", "))));
+                }
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE,"Error sending to discord", e);
         }
     }
 
